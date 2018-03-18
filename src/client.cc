@@ -142,26 +142,26 @@ String generate_context_info(const Context& context)
     return s;
 }
 
-DisplayLine Client::generate_mode_line() const
+DisplayLine Client::generate_zone_line(StringView option) const
 {
-    DisplayLine modeline;
+    DisplayLine line;
     try
     {
-        const String& modelinefmt = context().options()["modelinefmt"].get<String>();
+        const String& linefmt = context().options()[option].get<String>();
         HashMap<String, DisplayLine> atoms{{ "mode_info", context().client().input_handler().mode_line() },
                                            { "context_info", {generate_context_info(context()),
                                                               context().faces()["Information"]}}};
-        auto expanded = expand(modelinefmt, context(), ShellContext{},
+        auto expanded = expand(linefmt, context(), ShellContext{},
                                [](String s) { return escape(s, '{', '\\'); });
-        modeline = parse_display_line(expanded, context().faces(), atoms);
+        line = parse_display_line(expanded, context().faces(), atoms);
     }
     catch (runtime_error& err)
     {
-        write_to_debug_buffer(format("Error while parsing modelinefmt: {}", err.what()));
-        modeline.push_back({ "modelinefmt error, see *debug* buffer", context().faces()["Error"] });
+        write_to_debug_buffer(format("Error while parsing zone: {}", err.what()));
+        line.push_back({ "zone fmt error, see *debug* buffer", context().faces()["Error"] });
     }
 
-    return modeline;
+    return line;
 }
 
 void Client::change_buffer(Buffer& buffer)
@@ -205,11 +205,31 @@ void Client::redraw_ifn()
     if (window.needs_redraw(context()))
         m_ui_pending |= Draw;
 
-    DisplayLine mode_line = generate_mode_line();
+    DisplayLine mode_line = generate_zone_line("modelinefmt");
     if (mode_line.atoms() != m_mode_line.atoms())
     {
         m_ui_pending |= StatusLine;
         m_mode_line = std::move(mode_line);
+    }
+
+    auto ui_options = m_window->options()["ui_options"].get<UserInterface::Options>();
+    auto layout = ui_options.find("ncurses_layout"_sv);
+    if (layout != ui_options.end())
+    {
+        ZoneMap zone_lines;
+        for (auto zone : layout->value | split<String>(','))
+        {
+            if (zone == "main" or zone == "status")
+                continue;
+
+            DisplayLine line = generate_zone_line(zone);
+            auto it = m_zone_lines.find(zone);
+            if (it == m_zone_lines.end() or line.atoms() != it->value.atoms())
+                zone_lines.insert({ zone, std::move(line) });
+        }
+        m_zone_lines = zone_lines;
+        if (not m_zone_lines.empty())
+            m_ui_pending |= Zones;
     }
 
     if (m_ui_pending == 0)
@@ -260,6 +280,12 @@ void Client::redraw_ifn()
 
     if (m_ui_pending & StatusLine)
         m_ui->draw_status(m_status_line, m_mode_line, faces["StatusLine"]);
+
+    if (m_ui_pending & Zones)
+    {
+        for (auto& zone : m_zone_lines)
+            m_ui->draw_zone(zone.key, zone.value, faces["StatusLine"]);
+    }
 
     auto cursor = m_input_handler.get_cursor_info();
     m_ui->set_cursor(cursor.first, cursor.second);

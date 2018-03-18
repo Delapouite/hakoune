@@ -34,6 +34,10 @@ public:
                      const DisplayLine& mode_line,
                      const Face& default_face) override;
 
+    void draw_zone(StringView zone,
+                   const DisplayLine& line,
+                   const Face& default_face);
+
     void menu_show(ConstArrayView<DisplayLine> items,
                    DisplayCoord anchor, Face fg, Face bg,
                    MenuStyle style) override;
@@ -112,8 +116,6 @@ private:
 
     void draw_menu();
 
-    LineCount content_line_offset() const;
-
     struct Info : Window
     {
         String title;
@@ -132,7 +134,6 @@ private:
     FDWatcher m_stdin_watcher;
     OnKeyCallback m_on_key;
 
-    bool m_status_on_top = false;
     ConstArrayView<StringView> m_assistant;
 
     void enable_mouse(bool enabled);
@@ -153,6 +154,9 @@ private:
     void set_resize_pending();
 
     ColumnCount m_status_len = 0;
+
+    Vector<String> m_layout;
+    LineCount zone_line(StringView zone_name);
 };
 
 }

@@ -29,6 +29,10 @@ public:
                      const DisplayLine& mode_line,
                      const Face& default_face) override;
 
+    void draw_zone(StringView zone,
+                   const DisplayLine& zone_line,
+                   const Face& default_face) override;
+
     void menu_show(ConstArrayView<DisplayLine> items,
                    DisplayCoord anchor, Face fg, Face bg,
                    MenuStyle style) override;

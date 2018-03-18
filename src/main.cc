@@ -390,7 +390,7 @@ void register_options()
                        "The ncurses ui supports the following options:\n"
                        "    <key>:                        <value>:\n"
                        "    ncurses_assistant             clippy|cat|dilbert|none|off\n"
-                       "    ncurses_status_on_top         bool\n"
+                       "    ncurses_layout                str\n"
                        "    ncurses_set_title             bool\n"
                        "    ncurses_enable_mouse          bool\n"
                        "    ncurses_change_colors         bool\n"
@@ -451,6 +451,7 @@ std::unique_ptr<UserInterface> make_ui(UIType ui_type)
 
         void draw(const DisplayBuffer&, const Face&, const Face&) override {}
         void draw_status(const DisplayLine&, const DisplayLine&, const Face&) override {}
+        void draw_zone(StringView, const DisplayLine& , const Face&) override {}
         DisplayCoord dimensions() override { return {24,80}; }
         void set_cursor(CursorMode, DisplayCoord) override {}
         void refresh(bool) override {}

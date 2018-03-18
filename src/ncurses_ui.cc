@@ -1,5 +1,6 @@
 #include "ncurses_ui.hh"
 
+#include "buffer_utils.hh"
 #include "display_buffer.hh"
 #include "event_manager.hh"
 #include "keys.hh"
@@ -260,7 +261,8 @@ NCursesUI::NCursesUI()
       }},
       m_assistant(assistant_clippy),
       m_colors{default_colors},
-      m_cursor{CursorMode::Buffer, {}}
+      m_cursor{CursorMode::Buffer, {}},
+      m_layout{"main", "status"}
 {
     initscr();
     raw();
@@ -322,7 +324,7 @@ void NCursesUI::Window::refresh()
 void NCursesUI::redraw()
 {
     pnoutrefresh(m_window, 0, 0, 0, 0,
-                 (int)m_dimensions.line + 1, (int)m_dimensions.column);
+                 (int)m_dimensions.line + (int)m_layout.size() - 1, (int)m_dimensions.column);
 
     if (m_menu.columns != 0 or m_menu.pos.column > m_status_len)
         m_menu.refresh();
@@ -330,10 +332,9 @@ void NCursesUI::redraw()
     m_info.refresh();
 
     if (m_cursor.mode == CursorMode::Prompt)
-        wmove(newscr, m_status_on_top ? 0 : (int)m_dimensions.line,
-              (int)m_cursor.coord.column);
+        wmove(newscr, (int)zone_line("status"), (int)m_cursor.coord.column);
     else
-        wmove(newscr, (int)(m_cursor.coord.line + content_line_offset()),
+        wmove(newscr, (int)(m_cursor.coord.line + zone_line("main")),
               (int)m_cursor.coord.column);
 
     doupdate();
@@ -397,21 +398,19 @@ void NCursesUI::draw(const DisplayBuffer& display_buffer,
 
     check_resize();
 
-    const DisplayCoord dim = dimensions();
-    const LineCount line_offset = content_line_offset();
-    LineCount line_index = line_offset;
+    LineCount line_index = zone_line("main");
     for (const DisplayLine& line : display_buffer.lines())
     {
         wmove(m_window, (int)line_index, 0);
         wclrtoeol(m_window);
-        draw_line(m_window, line, 0, dim.column, default_face);
+        draw_line(m_window, line, 0, m_dimensions.column, default_face);
         ++line_index;
     }
 
     wbkgdset(m_window, COLOR_PAIR(get_color_pair(padding_face)));
     set_face(m_window, padding_face, default_face);
 
-    while (line_index < dim.line + line_offset)
+    while (line_index < m_dimensions.line + zone_line("main"))
     {
         wmove(m_window, (int)line_index++, 0);
         wclrtoeol(m_window);
@@ -425,7 +424,7 @@ void NCursesUI::draw_status(const DisplayLine& status_line,
                             const DisplayLine& mode_line,
                             const Face& default_face)
 {
-    const int status_line_pos = m_status_on_top ? 0 : (int)m_dimensions.line;
+    const int status_line_pos = (int)zone_line("status");
     wmove(m_window, status_line_pos, 0);
 
     wbkgdset(m_window, COLOR_PAIR(get_color_pair(default_face)));
@@ -477,6 +476,18 @@ void NCursesUI::draw_status(const DisplayLine& status_line,
     m_dirty = true;
 }
 
+void NCursesUI::draw_zone(const StringView zone,
+                          const DisplayLine& line,
+                          const Face& default_face)
+{
+    wmove(m_window, (int)zone_line(zone), 0);
+    wbkgdset(m_window, COLOR_PAIR(get_color_pair(default_face)));
+    wclrtoeol(m_window);
+
+    draw_line(m_window, line, 0, m_dimensions.column, default_face);
+    m_dirty = true;
+}
+
 void NCursesUI::check_resize(bool force)
 {
     if (not force and not resize_pending)
@@ -507,7 +518,8 @@ void NCursesUI::check_resize(bool force)
     keypad(m_window, true);
     meta(m_window, true);
 
-    m_dimensions = DisplayCoord{ws.ws_row-1, ws.ws_col};
+    m_dimensions = DisplayCoord{ws.ws_row - (int)(m_layout.size()-1),
+                                ws.ws_col};
 
     if (char* csr = tigetstr((char*)"csr"))
         putp(tparm(csr, 0, ws.ws_row));
@@ -573,7 +585,7 @@ Optional<Key> NCursesUI::get_next_key()
             };
 
             return Key{ get_modifiers(ev.bstate),
-                        encode_coord({ ev.y - content_line_offset(), ev.x }) };
+                        encode_coord({ ev.y - zone_line("main"), ev.x }) };
         }
     }
 
@@ -824,19 +836,21 @@ void NCursesUI::menu_show(ConstArrayView<DisplayLine> items,
         kak_assert(m_menu.items.back().length() <= maxlen);
     }
 
-    if (is_inline)
-        anchor.line += content_line_offset();
+    auto main_line_pos = zone_line("main");
+    anchor.line += main_line_pos;
 
     LineCount line = anchor.line + 1;
     ColumnCount column = std::max(0_col, std::min(anchor.column, m_dimensions.column - longest - 1));
     if (is_search)
     {
-        line = m_status_on_top ? 0_line : m_dimensions.line;
+        line = zone_line("status") < main_line_pos ? main_line_pos
+                                                   : main_line_pos +  m_dimensions.line;
         column = m_dimensions.column / 2;
     }
     else if (not is_inline)
-        line = m_status_on_top ? 1_line : m_dimensions.line - height;
-    else if (line + height > m_dimensions.line)
+        line = zone_line("status") < main_line_pos ? main_line_pos
+                                                   : main_line_pos + m_dimensions.line - height;
+    else if (line + height >= m_dimensions.line)
         line = anchor.line - height;
 
     const auto width = is_search ? m_dimensions.column - m_dimensions.column / 2
@@ -1040,12 +1054,13 @@ void NCursesUI::info_show(StringView title, StringView content,
     m_info.face = face;
     m_info.style = style;
 
-    const Rect rect = {content_line_offset(), m_dimensions};
+    auto main_line_pos = zone_line("main");
+    const Rect rect = {{main_line_pos}, m_dimensions};
     InfoBox info_box;
     if (style == InfoStyle::Prompt)
     {
         info_box = make_info_box(m_info.title, m_info.content, m_dimensions.column, m_assistant);
-        anchor = DisplayCoord{m_status_on_top ? 0 : m_dimensions.line, m_dimensions.column-1};
+        anchor = DisplayCoord{zone_line("status"), m_dimensions.column-1};
         anchor = compute_pos(anchor, info_box.size, rect, m_menu, style == InfoStyle::InlineAbove);
     }
     else if (style == InfoStyle::Modal)
@@ -1081,7 +1096,7 @@ void NCursesUI::info_show(StringView title, StringView content,
         info_box = make_simple_info_box(m_info.content, max_width);
         anchor = compute_pos(anchor, info_box.size, rect, m_menu, style == InfoStyle::InlineAbove);
 
-        anchor.line += content_line_offset();
+        anchor.line += main_line_pos;
     }
 
     // The info box does not fit
@@ -1122,11 +1137,6 @@ void NCursesUI::set_on_key(OnKeyCallback callback)
 DisplayCoord NCursesUI::dimensions()
 {
     return m_dimensions;
-}
-
-LineCount NCursesUI::content_line_offset() const
-{
-    return m_status_on_top ? 1 : 0;
 }
 
 void NCursesUI::set_resize_pending()
@@ -1179,9 +1189,19 @@ void NCursesUI::set_ui_options(const Options& options)
     }
 
     {
-        auto it = options.find("ncurses_status_on_top"_sv);
-        m_status_on_top = it != options.end() and
-            (it->value == "yes" or it->value == "true");
+        auto it = options.find("ncurses_layout"_sv);
+        if (it != options.end())
+        {
+            auto layout = it->value | split<String>(',')
+                                    | gather<Vector<String>>();
+            auto main = find(layout, "main");
+            auto status = find(layout, "status");
+            if (main == layout.end() or status == layout.end())
+                write_to_debug_buffer("main and status zones are mandatory in ncurses_layout");
+
+            m_layout = std::move(layout);
+            check_resize(true);
+        }
     }
 
     {
@@ -1229,6 +1249,17 @@ void NCursesUI::set_ui_options(const Options& options)
         m_wheel_down_button = wheel_down_it != options.end() ?
             str_to_int_ifp(wheel_down_it->value).value_or(5) : 5;
     }
+}
+
+LineCount NCursesUI::zone_line(StringView zone_name)
+{
+    LineCount line = 0;
+    for (auto& zone : m_layout) {
+        if (zone == zone_name)
+            return line;
+        line += (zone == "main") ? m_dimensions.line : 1;
+    }
+    return line;
 }
 
 }

@@ -82,7 +82,7 @@ private:
     void close_buffer_reload_dialog();
     void reload_buffer();
 
-    DisplayLine generate_mode_line() const;
+    DisplayLine generate_zone_line(StringView option) const;
 
     std::unique_ptr<UserInterface> m_ui;
     std::unique_ptr<Window> m_window;
@@ -98,6 +98,9 @@ private:
     DisplayLine m_status_line;
     DisplayLine m_mode_line;
 
+    using ZoneMap = HashMap<String, DisplayLine>;
+    ZoneMap m_zone_lines;
+
     enum PendingUI : int
     {
         MenuShow   = 1 << 0,
@@ -106,8 +109,9 @@ private:
         InfoShow   = 1 << 3,
         InfoHide   = 1 << 4,
         StatusLine = 1 << 5,
-        Draw       = 1 << 6,
-        Refresh    = 1 << 7,
+        Zones      = 1 << 6,
+        Draw       = 1 << 7,
+        Refresh    = 1 << 8,
     };
     int m_ui_pending = 0;
 

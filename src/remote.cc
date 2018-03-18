@@ -36,6 +36,7 @@ enum class MessageType : uint8_t
     InfoHide,
     Draw,
     DrawStatus,
+    DrawZone,
     SetCursor,
     Refresh,
     SetOptions,
@@ -335,6 +336,10 @@ public:
                      const DisplayLine& mode_line,
                      const Face& default_face) override;
 
+    void draw_zone(StringView zone,
+                   const DisplayLine& zone_line,
+                   const Face& default_face) override;
+
     void set_cursor(CursorMode mode, DisplayCoord coord) override;
 
     void refresh(bool force) override;
@@ -486,6 +491,17 @@ void RemoteUI::draw_status(const DisplayLine& status_line,
     MsgWriter msg{m_send_buffer, MessageType::DrawStatus};
     msg.write(status_line);
     msg.write(mode_line);
+    msg.write(default_face);
+    m_socket_watcher.events() |= FdEvents::Write;
+}
+
+void RemoteUI::draw_zone(StringView zone,
+                         const DisplayLine& zone_line,
+                         const Face& default_face)
+{
+    MsgWriter msg{m_send_buffer, MessageType::DrawZone};
+    msg.write(zone);
+    msg.write(zone_line);
     msg.write(default_face);
     m_socket_watcher.events() |= FdEvents::Write;
 }
@@ -643,6 +659,14 @@ RemoteClient::RemoteClient(StringView session, StringView name, std::unique_ptr<
                 auto mode_line = reader.read<DisplayLine>();
                 auto default_face = reader.read<Face>();
                 m_ui->draw_status(status_line, mode_line, default_face);
+                break;
+            }
+            case MessageType::DrawZone:
+            {
+                auto zone = reader.read<String>();
+                auto zone_line = reader.read<DisplayLine>();
+                auto default_face = reader.read<Face>();
+                m_ui->draw_zone(zone, zone_line, default_face);
                 break;
             }
             case MessageType::SetCursor:

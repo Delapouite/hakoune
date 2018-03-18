@@ -69,6 +69,10 @@ public:
                              const DisplayLine& mode_line,
                              const Face& default_face) = 0;
 
+    virtual void draw_zone(StringView zone,
+                           const DisplayLine& zone_line,
+                           const Face& default_face) = 0;
+
     virtual DisplayCoord dimensions() = 0;
 
     virtual void set_cursor(CursorMode mode, DisplayCoord coord) = 0;

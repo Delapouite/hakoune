@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-= image:{logo}[K,30,30,link="{website}",title="Kakoune logo by p0nce"] Kakoune image:{travis-img}[link="{travis-url}"] image:{irc-img}[link="{irc-url}"]
+= image:{logo}[K,30,30,link="{website}"] Kakoune image:{travis-img}[link="{travis-url}"] image:{irc-img}[link="{irc-url}"]
 ifdef::env-github,env-browser[:outfilesuffix: .asciidoc]
 :logo: https://rawgit.com/mawww/kakoune/master/doc/kakoune_logo.svg
 :website: http://kakoune.org
@@ -107,6 +106,7 @@ Kakoune dependencies are:
  * A {cpp}14 compliant compiler (GCC >= 5 or clang >= 3.9) along with its
    associated {cpp} standard library (libstdc{pp} or libc{pp})
  * ncurses with wide-characters support (>= 5.3, generally referred to as libncursesw)
+ * asciidoc (for the `a2k` tool), to generate man pages
 
 To build, just type *make* in the src directory.
 To generate man pages, type *make man* in the src directory.
@@ -189,7 +189,7 @@ Building on Ubuntu 16.04.
 Make sure you have .local/bin in your path to make the kak binary available from your shell.
 
 ----------------------------------------------------------------
-sudo apt install libncursesw5-dev pkg-config
+sudo apt install libncursesw5-dev asciidoc
 git clone https://github.com/mawww/kakoune.git && cd kakoune/src
 make
 PREFIX=$HOME/.local make install
@@ -301,168 +301,343 @@ or the selected text.
 
 Insert Mode
 ~~~~~~~~~~~
-=======
-:toc: macro
-:toc-title: Features
->>>>>>> hakoune: add README
 
-# Hakoune
+When entering insert mode, keys are now directly inserted before each
+selection's cursor. Some additional keys are recognised in insert mode:
 
-     _           _                          
-    | |         | |                         
-    | |__   __ _| | _____  _   _ _ __   ___ 
-    | '_ \ / _` | |/ / _ \| | | | '_ \ / _ \
-    | | | | (_| |   < (_) | |_| | | | |  __/
-    |_| |_|\__,_|_|\_\___/ \__,_|_| |_|\___|
+ * `<esc>`: leave insert mode
+ * `<backspace>`: delete characters before cursors
+ * `<del>`: delete characters under cursors
+ * `<left>, <right>, <up>, <down>`: move the cursors in given direction
+ * `<home>`: move cursors to line begin
+ * `<end>`: move cursors to end of line
 
+ * `<c-n>`: select next completion candidate
+ * `<c-p>`: select previous completion candidate
+ * `<c-x>`: explicit insert completion query, followed by:
+   - `f`: explicit file completion
+   - `w`: explicit word completion
+   - `l`: explicit line completion
+ * `<c-o>`: disable automatic completion for this insert session
 
-Hakoune is a friendly fork of the http://kakoune.org[Kakoune] text editor
-offering 6 extra independent features.
-It aims to remain compatible and up to date with the original project.
+ * `<c-r>`: insert contents of the register given by next key
+ * `<c-v>`: insert next keystroke directly into the buffer,
+    without interpreting it.
 
+ * `<c-u>`: commit changes up to now as a single undo group.
 
+ * `<a-;>`: escape to normal mode for a single command
 
-This code repository is structured as a collection of git branches:
+Movement
+~~~~~~~~
 
-- `vanilla`: ref to https://github.com/mawww/kakoune[`mawww/master`] branch.
-  It's regularly pulled from upstream and serves as the platform to rebase the other branches.
-- `hakoune`: this is the *complete edition*, with all feature-branches merged-in. 
+ * `h`: select the character on the left of selection end
+ * `j`: select the character below the selection end
+ * `k`: select the character above the selection end
+ * `l`: select the character on the right of selection end
 
-Distribution packages with prebuilt binaries are not provided. You have to build from the source:
+ * `w`: select the word and following whitespaces  on the right of selection end
+ * `b`: select preceding whitespaces and the word on the left of selection end
+ * `e`: select preceding whitespaces and the word on the right of selection end
+ * `<a-[wbe]>`: same as [wbe] but select WORD instead of word
 
-```
-cd src && make && make install
-```
+ * `f`: select to the next occurence of given character
+ * `t`: select until the next occurence of given character
+ * `<a-[ft]>`: same as [ft] but in the other direction
+
+ * `m`: select to matching character
+ * `M`: extend selection to matching character
+
+ * `x`: select line on which selection end lies (or next line when end lies on
+        an end-of-line)
+ * `X`: similar to `x`, except the current selection is extended
+ * `<a-x>`: expand selections to contain full lines (including end-of-lines)
+ * `<a-X>`: trim selections to only contain full lines (not including last
+            end-of-line)
+
+ * `%`: select whole buffer
+
+ * `<a-h>`: select to line begin
+ * `<a-l>`: select to line end
+
+ * `/`: search (select next match)
+ * `<a-/>`: search (select previous match)
+ * `?`: search (extend to next match)
+ * `<a-?>`: search (extend to previous match)
+ * `n`: select next match
+ * `N`: add a new selection with next match
+ * `<a-n>`: select previous match
+ * `<a-N>`: add a new selection with previous match
+
+ * `pageup, <c-b>`: scroll one page up
+ * `pagedown, <c-f>`: scroll one page down
+ * `<c-u>`: scroll half a page up
+ * `<c-d>`: scroll half a page down
+
+ * `)`: rotate selections (the main selection becomes the next one)
+ * `(`: rotate selections backwards
+
+ * `;`: reduce selections to their cursor
+ * `<a-;>`: flip the selections' direction
+ * `<a-:>`: ensure selections are in forward direction (cursor after anchor)
+
+ * `<a-.>`: repeat last object or `f`/`t` selection command.
+
+ * `_`: trim selections
+
+A word is a sequence of alphanumeric characters or underscore, a WORD is a
+sequence of non whitespace characters.
+
+Appending
+~~~~~~~~~
+
+for most selection commands, using shift permits extending current selection
+instead of replacing it. for example, `wWW` selects 3 consecutive words
+
+Using Counts
+~~~~~~~~~~~~
+
+Most selection commands also support counts, which are entered before the
+command itself.
+
+For example, `3W` selects 3 consecutive words and `3w` select the third word on
+the right of selection end.
+
+Disabling Hooks
+~~~~~~~~~~~~~~~
+
+Any normal mode command can be prefixed with `\` which will disable hook execution
+for the duration for the command (including the duration of modes the command could
+move to, so `\i` will disable hooks for the whole insert session).
+
+As autoindentation is implemented in terms of hooks, this can be used to disable
+it when pasting text.
+
+Changes
+~~~~~~~
 
-Feel free to use the full `hakoune` branch or cherry-pick only the patches you want
-to craft your own customized experience.
+ * `i`: enter insert mode before current selection
+ * `a`: enter insert mode after current selection
+ * `d`: yank and delete current selection
+ * `c`: yank and delete current selection and enter insert mode
+ * `.`: repeat last insert mode change (`i`, `a`, or `c`, including
+        the inserted text)
 
+ * `<a-d>`: delete current selection
+ * `<a-c>`: delete current selection and enter insert mode
 
-toc::[]
+ * `I`: enter insert mode at current selection begin line start
+ * `A`: enter insert mode at current selection end line end
+ * `o`: enter insert mode in one (or given count) new lines below
+        current selection end
+ * `O`: enter insert mode in one (or given count)  new lines above
+        current selection begin
 
+ * `<a-o>`: add an empty line below cursor
+ * `<a-O>`: add an empty line above cursor
 
+ * `y`: yank selections
+ * `p`: paste after current selection end
+ * `P`: paste before current selection begin
+ * `<a-p>`: paste all after current selection end, and
+            select each pasted string.
+ * `<a-P>`: paste all before current selection begin, and
+            select each pasted string.
+ * `R`: replace current selection with yanked text
+ * `<a-R>`: replace current selection with every yanked text
 
-## TUI
+ * `r`: replace each character with the next entered one
 
+ * `<a-j>`: join selected lines
+ * `<a-J>`: join selected lines and select spaces inserted
+            in place of line breaks
+ * `<a-m>`: merge contiguous selections together (works across lines as well)
 
-### `layout` branch
+ * `<gt> (>)`: indent selected lines
+ * `<a-gt>`: indent selected lines, including empty lines
+ * `<lt> (<)`: deindent selected lines
+ * `<a-lt>`: deindent selected lines, do not remove incomplete
+        indent (3 leading spaces when indent is 4)
 
-This branch lets you add extra UI bars (lines) around the editor.
-They can be useful to display a permanent *buffer list bar*, *grep result counters*,
-*git status*, *registers contents*…
+ * `|`: pipe each selection through the given external filter program
+        and replace the selection with it's output.
+ * `<a-|>`: pipe each selection through the given external filter program
+        and ignore its output
 
-To do so, add a new `ncurses_layout` value to the option `ui_options`.
-It's a comma separated list of *zone names* describing the UI appearance
-from top to bottom. Default value is `main,status`, meaning that
-the status bar is displayed below the main editing zone.
+ * `!`: insert command output before selection
+ * `<a-!>`: append command output after selection
 
-`main` and `status` are mandatory names reserved by Hakoune.
-If specified, additional zone names must refer to existing string
-typed options.
+ * `u`: undo last change
+ * `<a-u>`: move backward in history
+ * `U`: redo last change
+ * `<a-U>`: move forward in history
 
-For example:
-`decl str foo hello`
-`set global ui_options 'ncurses_assistant=cat:ncurses_layout=foo,main,status'`
-will add a bar on top of the screen displaying `hello`. Then it's up to you
-to replace `hello` with a more meaningful value in periodical hooks.
-This string can contain markup, like the classic `echo` command.
+ * `&`: align selection, align the cursor of selections by inserting
+        spaces before the first character of the selection
+ * `<a-&>`: copy indent, copy the indentation of the main selection
+        (or the count one if a count is given) to all other ones
 
-PR: https://github.com/mawww/kakoune/pull/1942[#1942] - Mar 2018 - open
+ * ```: to lower case
+ * `~`: to upper case
+ * ``<a-`>``: swap case
 
-[[layout]]
-.Buffers list bar with current buffer highlighted.
-image::doc/screenshots/layout.png[Kakoune with layout]
+ * `@`: convert tabs to spaces in current selections, uses the buffer
+        tabstop option or the count parameter for tabstop.
+ * `<a-@>`: convert spaces to tabs in current selections, uses the buffer
+            tabstop option or the count parameter for tabstop.
 
+ * `<a-)>`: rotate selections content, if specified, the count groups
+            selections, so `3<a-">` rotate (1, 2, 3) and (3, 4, 6)
+            independently.
+ * `<a-(>`: rotate selections content backwards
 
-### `recorded-keys` branch
+Goto Commands
+~~~~~~~~~~~~~
 
-During macro recording (`Q`), the recorded keys are displayed in the status line.
+Commands beginning with `g` are used to goto certain position and or buffer.
+If a count is given prior to hitting `g`, `g` will jump to the given line.
+Using `G` will extend the selection rather than jump.
 
-Issue: https://github.com/mawww/kakoune/pull/1273[#1273] - Mar 2017 - open
+See <<doc/pages/keys#goto-commands,`:doc keys goto-commands`>>.
 
-[[recorded-keys]]
-.Recorded keys displayed at the bottom
-image::doc/screenshots/recorded-keys.png[Kakoune with recorded keys]
+View commands
+~~~~~~~~~~~~~
 
+Commands beginning with `v` permit to center or scroll the current
+view. Using `V` will lock view mode until `<esc>` is hit
 
-### `status-selections` branch
+See <<doc/pages/keys#view-commands,`:doc keys view-commands`>>.
 
-This branch adds a new `selection_count` value and removes selections info from the 
-`{{mode_info}}` expansion in the `modelinefmt` option.
+Marks
+~~~~~
 
-The benefit is that you are now in control of displaying selections info as you want
-and *when* you want. For instance, displaying the number of current selections is valuable
-in `search` mode.
+Current selections position can be saved in a register and restored later on.
 
-e.g. part of `modelinefmt` may contain `{StatusLineInfo}#%reg{#}/%val{selection_count}{Default}`
+See <<doc/pages/keys#marks,`:doc keys marks`>>.
 
+Jump list
+~~~~~~~~~
 
+Some commands, like the goto commands, buffer switch or search commands,
+push the previous selections to the client's jump list.
+
+See <<doc/pages/keys#jump-list,`:doc keys jump-list`>>.
+
+Multi Selection
+~~~~~~~~~~~~~~~
+
+Kak was designed from the start to handle multiple selections.
+One way to get a multiselection is via the `s` key.
+
+For example, to change all occurrences of word 'roger' to word 'marcel'
+in a paragraph, here is what can be done:
+
+ * select the paragraph with enough `x`
+ * press `s` and enter roger, then enter
+ * now paragraph selection was replaced with multiselection of each roger in
+the paragraph
+ * press `c` and marcel<esc> to replace rogers with marcels
+
+A multiselection can also be obtained with `S`, which splits the current
+selection according to the regex entered. To split a comma separated list,
+use `S` then ', *'
+
+The regex syntax supported by Kakoune is the based on the ECMAScript script
+syntax and is described at <<doc/pages/regex#,`:doc regex`>>.
+
+`s` and `S` share the search pattern with `/`, and hence entering an empty
+pattern uses the last one.
+
+As a convenience, `<a-s>` allows you to split the current selections on
+line boundaries.
+
+To clear multiple selections, use `space`. To keep only the nth selection
+use `n` followed by `space`, in order to remove a selection, use `<a-space>`.
+
+`<a-k>` allows you to enter a regex and keep only the selections that
+contains a match for this regex. Using `<a-K>` you can keep the selections
+not containing a match.
+
+`C` copies the current selection to the next line (or lines if a count is given)
+`<a-C>` does the same to previous lines.
+
+`$` allows you to enter a shell command and pipe each selection to it.
+Selections whose shell command returns 0 will be kept, other will be dropped.
+
+Object Selection
+~~~~~~~~~~~~~~~~
+
+Objects are specific portions of text, like sentences, paragraphs, numbers…
+Kakoune offers many keys allowing you to select various text objects.
+
+See <<doc/pages/keys#object-selection,`:doc keys object-selection`>>.
+
+Commands
+--------
+
+When pressing `:` in normal mode, Kakoune will open a prompt to enter a command.
+
+Commands are used for non editing tasks, such as opening a buffer, writing the
+current one, quitting, etc.
+
+See <<doc/pages/keys#prompt-commands,`:doc keys prompt-commands`>>.
+
+Basic Commands
+~~~~~~~~~~~~~~
+
+Some commands take an exclamation mark (`!`), which can be used to force
+the execution of the command (i.e. to quit a modified buffer, the
+command `q!` has to be used).
+
+Commands starting with horizontal whitespace (e.g. a space) will not be
+saved in the command history.
+
+ * `cd [<directory>]`: change the current directory to `<directory>`, or the home directory if unspecified
+ * `doc <topic>`: display documentation about a topic. The completion list
+     displays the available topics.
+ * `e[dit][!] <filename> [<line> [<column>]]`: open buffer on file, go to given
+     line and column. If file is already opened, just switch to this file.
+     Use edit! to force reloading.
+ * `w[rite][!] [<filename>]`: write buffer to <filename> or use its name if
+     filename is not given. If the file is write-protected, its
+     permissions are temporarily changed to allow saving the buffer and
+     restored afterwards when the write! command is used.
+ * `w[rite]a[ll]`: write all buffers that are associated to a file.
+ * `q[uit][!] [<exit status>]`: exit Kakoune, use quit! to force quitting even
+     if there is some unsaved buffers remaining. If specified, the client exit
+     status will be set to <exit status>.
+ * `w[a]q[!] [<exit status>]`: write the current buffer (or all buffers when
+     `waq` is used) and quit. If specified, the client exit status will be set
+     to <exit status>.
+ * `kill[!]`: terminate the current session, all the clients as well as the server,
+     use kill! to ignore unsaved buffers
+ * `b[uffer] <name>`: switch to buffer <name>
+ * `b[uffer]n[ext]`: switch to the next buffer
+ * `b[uffer]p[rev]`: switch to the previous buffer
+ * `d[el]b[uf][!] [<name>]`: delete the buffer <name>
+ * `source <filename>`: execute commands in <filename>
+ * `colorscheme <name>`: load named colorscheme.
+ * `rename-client <name>`: set current client name
+ * `rename-buffer <name>`: set current buffer name
+ * `rename-session <name>`: set current session name
+ * `echo [options] <text>`: show <text> in status line, with the following options:
+   ** `-markup`: expand the markup strings in <text>
+   ** `-debug`: print the given text to the `\*debug*` buffer
+ * `nop`: does nothing, but as with every other commands, arguments may be
+     evaluated. So nop can be used for example to execute a shell command
+     while being sure that it's output will not be interpreted by kak.
+     `:%sh{ echo echo tchou }` will echo tchou in Kakoune, whereas
+     `:nop %sh{ echo echo tchou }` will not, but both will execute the
+     shell command.
+ * `fail <text>`: raise an error, uses <text> as its description
+
+Multiple commands
+~~~~~~~~~~~~~~~~~
+
+Multiple commands can be separated either by new lines or by semicolons,
+as such a semicolon must be escaped with `\;` to be considered as a literal
+semicolon argument.
 
-## Keys
-
-
-### `upper-registers` branch
-
-This branch adds a distinct behavior between lowercase and uppercase registers:
-
-- `"ay` *yanks* the current selection(s) in the `a` register (as usual).
-- `"Ay` *appends* the current selection(s) to the content of the `a` register.
-
-PR: https://github.com/mawww/kakoune/pull/1630[#1630] - Oct 2017 - open
-
-
-### `count-repeat` branch
-
-This feature lets you prefix the `.` (repeat last insert) and `<a-.>` (repeat last select) with a count.
-
-Examples:
-
-- `ihello<esc>5.` first insert `hello` _and then_ insert it again 5 more times.
-- `fe3<a-.>` select to next `e` _and then_ select to the 3rd `e`.
-
-The "and then" concept above is nice, because you can take a break after the insert or select
-operations. It fixes many workflow scenarios when you say to yourself: "oops, I forgot to prefix this `f`
-by a count :(". With this feature: "No worries, I can still do it afterwards :)"
-
-PR: https://github.com/mawww/kakoune/issues/1602[#1602] - Sep 2017 - open
-
-
-### `goto-matching` branch
-
-This branch binds the `gm` keys to go to the next matching character (the closing `}` if the cursor
-is on a `{`). The `g<a-m>` does the same for the previous matching character.
-
-```
-map global goto m '<esc>m;' -docstring 'matching next char'
-map global goto <a-m> '<esc><a-m>;' -docstring 'matching previous char'
-```
-
-PR: https://github.com/mawww/kakoune/issues/1151[#1151] - Jan 2017 - closed
-
-
-
-## Obsolete features
-
-The following features are now available in native Kakoune.
-
-
-### `rotate-content-backward` branch
-
-This branch provides the reverse operation of the builtin `<a-">` (rotate content forward).
-Thie problem is `"` is already reserved for register handling.
-In order to avoid breaking compatibility with existing scripts,
-the `rotate-content-backward` primitive is bound to `<c-k>`, which is free by default.
-
-It seems a weird choice at first but here's the trick:
-
-```
-map global normal <ret> '<a-">' -docstring 'rotate selections content forward'
-```
-
-Currently `<ret>` is a synonym for `<c-j>` because of crazy terminal protocol legacy.
-So we obtain a nice symmetry with a *up* (k) and *down* (j) keys mnemonic for backward/forward.
-
-<<<<<<< HEAD
 String syntax and expansions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -656,18 +831,3 @@ entry, and `k`, `<c-p>` or `<shift-tab>` to select the previous one.
 
 Using the `/` key, you can enter some regex in order to restrict available choices
 to the matching ones.
-
-Credits
--------
-
-Thanks to https://github.com/p0nce[p0nce] for designing the
-https://github.com/mawww/kakoune/blob/master/doc/kakoune_logo.svg[Kakoune
-logo].
-
-And thanks to all the
-https://github.com/mawww/kakoune/graphs/contributors[contributors] who help
-move the project forward!
-=======
-PR: https://github.com/mawww/kakoune/issues/1210[#1210] - Feb 2017 - closed
-Commit: https://github.com/mawww/kakoune/commit/ec7f3738ee08fa3c2e095d29dcb61eab37ba434f[ec7f37]
->>>>>>> hakoune: add README

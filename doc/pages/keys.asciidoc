@@ -363,8 +363,11 @@ is a sequence of non whitespace characters
     trim selections
 
 *<a-">*::
-    rotate selections content, if specified, the count groups selections,
-    so the following command
+    rotate selections content forward, if specified, the count groups
+    selections, so the following command
+
+*<c-k>*::
+    rotate selections content backward
 
 ----------
     3<a-">

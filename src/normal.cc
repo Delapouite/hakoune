@@ -1368,6 +1368,7 @@ void rotate_selections(Context& context, NormalParams params)
                               : (index + (num - count % num)) % num);
 }
 
+template<Direction direction>
 void rotate_selections_content(Context& context, NormalParams params)
 {
     int group = params.count;
@@ -1379,13 +1380,17 @@ void rotate_selections_content(Context& context, NormalParams params)
     for (auto it = strings.begin(); it != strings.end(); )
     {
         auto end = std::min(strings.end(), it + group);
-        std::rotate(it, end-count, end);
+        auto n_begin = (direction == Direction::Forward ? end - count : it + count);
+        std::rotate(it, n_begin, end);
         it = end;
     }
     auto& selections = context.selections();
     selections.insert(strings, InsertMode::Replace);
-    selections.set_main_index((selections.main_index() + count) %
-                              selections.size());
+    const int index = selections.main_index();
+    const int num = selections.size();
+    selections.set_main_index((direction == Forward) ?
+                                (index + count) % num
+                              : (index + (num - count % num)) % num);
 }
 
 enum class SelectFlags
@@ -2190,7 +2195,8 @@ static const HashMap<Key, NormalCmd, MemoryDomain::Undefined, KeymapBackend> key
 
     { {'\''}, {"rotate main selection forward", rotate_selections<Forward>} },
     { {alt('\'')}, {"rotate main selection backward", rotate_selections<Backward>} },
-    { {alt('"')}, {"rotate selections content", rotate_selections_content} },
+    { {alt('"')}, {"rotate selections content forward", rotate_selections_content<Forward>} },
+    { {ctrl('k')}, {"rotate selections content backward", rotate_selections_content<Backward>} },
 
     { {'q'}, {"replay recorded macro", replay_macro} },
     { {'Q'}, {"start or end macro recording", start_or_end_macro_recording} },

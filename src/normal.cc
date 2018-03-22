@@ -2169,8 +2169,8 @@ static const HashMap<Key, NormalCmd, MemoryDomain::Undefined, KeymapBackend> key
     { {alt('s')}, {"split selected text on line ends", split_lines} },
     { {alt('S')}, {"select selection boundaries", select_boundaries} },
 
-    { {'.'}, {"repeat last insert command", repeat_last_insert} },
-    { {alt('.')}, {"repeat last object select/character find", repeat_last_select} },
+    { {'.'}, {"repeat last insert command", repeated<repeat_last_insert>} },
+    { {alt('.')}, {"repeat last object select/character find", repeated<repeat_last_select>} },
 
     { {'%'}, {"select whole buffer", select_whole_buffer} },
 

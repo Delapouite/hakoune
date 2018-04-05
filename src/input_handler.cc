@@ -322,13 +322,6 @@ public:
     DisplayLine mode_line() const override
     {
         AtomList atoms;
-        auto num_sel = context().selections().size();
-        auto main_index = context().selections().main_index();
-        if (num_sel == 1)
-            atoms.emplace_back(format("{} sel", num_sel), context().faces()["StatusLineInfo"]);
-        else
-            atoms.emplace_back(format("{} sels ({})", num_sel, main_index + 1), context().faces()["StatusLineInfo"]);
-
         if (m_params.count != 0)
         {
             atoms.emplace_back(" param=", context().faces()["StatusLineInfo"]);
@@ -1351,12 +1344,7 @@ public:
 
     DisplayLine mode_line() const override
     {
-        auto num_sel = context().selections().size();
-        auto main_index = context().selections().main_index();
-        return {AtomList{ { "insert", context().faces()["StatusLineMode"] },
-                          { " ", context().faces()["StatusLine"] },
-                          { format( "{} sels ({})", num_sel, main_index + 1),
-                             context().faces()["StatusLineInfo"] } }};
+        return { "insert", context().faces()["StatusLineMode"] };
     }
 
     KeymapMode keymap_mode() const override { return KeymapMode::Insert; }

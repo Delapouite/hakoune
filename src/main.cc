@@ -152,6 +152,18 @@ static const EnvVarDesc builtin_env_vars[] = { {
         [](StringView name, const Context& context, Quoting quoting)
         { return join(context.selections_content() | transform(quoter(quoting)), ' ', false); }
     }, {
+        "selection_desc", false,
+        [](StringView name, const Context& context, Quoting quoting)
+        { return selection_to_string(context.selections().main()); }
+    }, {
+        "selections_desc", false,
+        [](StringView name, const Context& context, Quoting quoting)
+        { return selection_list_to_string(context.selections()); }
+    }, {
+        "selection_count", false,
+        [](StringView name, const Context& context, Quoting quoting) -> String
+        { return to_string(context.selections().size()); }
+    }, {
         "runtime", false,
         [](StringView name, const Context& context, Quoting quoting)
         { return runtime_directory(); }
@@ -226,14 +238,6 @@ static const EnvVarDesc builtin_env_vars[] = { {
         [](StringView name, const Context& context, Quoting quoting) -> String
         { auto cursor = context.selections().main().cursor();
           return to_string(context.buffer().distance({0,0}, cursor)); }
-    }, {
-        "selection_desc", false,
-        [](StringView name, const Context& context, Quoting quoting)
-        { return selection_to_string(context.selections().main()); }
-    }, {
-        "selections_desc", false,
-        [](StringView name, const Context& context, Quoting quoting)
-        { return selection_list_to_string(context.selections()); }
     }, {
         "window_width", false,
         [](StringView name, const Context& context, Quoting quoting) -> String
@@ -405,7 +409,7 @@ void register_options()
                        "    ncurses_shift_function_key    int\n",
                        UserInterface::Options{});
     reg.declare_option("modelinefmt", "format string used to generate the modeline",
-                       "%val{bufname} %val{cursor_line}:%val{cursor_char_column} {{context_info}} {{mode_info}} - %val{client}@[%val{session}]"_str);
+                       "%val{bufname} %val{cursor_line}:%val{cursor_char_column} {{context_info}} {{mode_info}} {StatusLineInfo}%reg{#} sels (%val{selection_count}){Default} - %val{client}@[%val{session}]"_str);
 
     reg.declare_option("debug", "various debug flags", DebugFlags::None);
     reg.declare_option("readonly", "prevent buffers from being modified", false);

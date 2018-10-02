@@ -1,3 +1,6 @@
+map global goto m '<esc>m;' -docstring 'matching next char'
+map global goto <a-m> '<esc><a-m>;' -docstring 'matching previous char'
+
 def -params 1 -docstring "colorscheme <name>: enable named colorscheme" \
     -shell-script-candidates %{
     find -L "${kak_runtime}/colors" "${kak_config}/colors" -type f -name '*\.kak' \
@@ -47,3 +50,4 @@ evaluate-commands %sh{
         echo "source '${kak_config}/kakrc'"
     fi
 }
+
